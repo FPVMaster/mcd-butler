@@ -114,3 +114,16 @@ mcd-butler/
 6. **生成 `evidence-real.md`**：完整记录 init 握手、37 工具清单、brief 实跑输出与合规说明；README 新增"真实调用证据"章节。
 
 **本轮验证：** `py_compile` 通过；`init` / `list` / `brief` 真实调用全部成功；全程仅调用只读工具（`now-time-info` / `available-coupons` / `campaign-calendar` / `list-nutrition-foods`），未触发下单、领券、抽奖等任何写操作。
+
+---
+
+## 第九步：发布开源与官方报名（AI 经用户授权代操作）
+
+**用户提供 GitHub PAT（repo 权限）并明确授权后，WorkBuddy 完成发布与报名闭环：**
+
+1. PAT 经 GitHub API 验证有效（用户 `FPVMaster`，scope：repo/workflow）；Token 仅用于本次命令行调用，未写入任何仓库文件。
+2. 创建公开仓库 **https://github.com/FPVMaster/mcd-butler**。
+3. 推送 `main` 分支（3 个提交：初版 `2abd3ce` → 质量升级 `69f8593` → 真实联调 `4319d16`），并配置本地 remote 便于后续更新。
+4. 在官方赛事仓库按既有报名 Issue 格式提交报名：**[M-China/mcd-developer-innovation-challenge#52](https://github.com/M-China/mcd-developer-innovation-challenge/issues/52)**（【参赛申请】+ 项目名称/地址/简介，与仓库内既有报名格式一致）。
+
+**至此参赛硬性流程全部完成**，剩余为运营动作：拉 Star（10-26 00:00 按 Star 数定榜，Star>0 进榜）。
