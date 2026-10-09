@@ -54,7 +54,7 @@
       <input id="budget" type="number" value="60" min="10" step="1" />
       <button onclick="run()">算最省方案</button>
     </div>
-    <div class="note">演示数据为示意菜单与券，仅用于展示算法；真实运行由 WorkBuddy 调用官方 MCP 返回实时价。</div>
+    <div class="note">下方为<b>官方实价快照</b>（2026-10-09 · 上海黄浦华旭国际大厦店，经 MCP <code>query-meals</code> 实拉）；真实运行由 WorkBuddy 调用官方 MCP 返回实时价。</div>
     <div id="out" style="margin-top:12px"></div>
   </div>
 
@@ -62,8 +62,8 @@
     <h2>② 这是什么</h2>
     <p>「麦麦管家」是一个跑在 <b>WorkBuddy</b>（及任意支持 MCP 的 Agent）里的技能，接入<b>麦当劳中国官方 MCP Server</b>
     （<code>mcp.mcd.cn</code>，实测 37 个工具）。它把"翻 App 比价、找券、查积分"压缩成一句话，并提供一个别的封装做不到的能力——</p>
-    <p><span class="badge">核心创新</span><b>省钱最优解引擎</b>：给定预算，自动组合「菜单 + 优惠券 + 价格试算」，枚举单人餐 / 双人分享餐，
-    匹配满减、买一送一、单品立减、第二件半价等券规则，输出"省得最多 + 吃得最值"的 Top3 组合。</p>
+    <p><span class="badge">核心创新</span><b>省钱最优解引擎</b>：给定预算，自动走 <code>query-nearby-stores → query-meals</code> 拉取门店真实菜单与官方现价/原价，
+    按官方折扣力度排序，输出"省得最多"的 Top3 套餐，并提示可叠加的优惠券——省额全部来自官方数据，无任何虚构。</p>
   </div>
 
   <div class="panel">
@@ -81,80 +81,47 @@
 </div>
 
 <script>
-// —— 与 scripts/mcd_mcp.py 保持一致的示意数据与算法（前端可交互演示）——
-const MENU = [
-  {name:"麦辣鸡腿堡",cat:"主食",price:21.5,cal:517},
-  {name:"板烧鸡腿堡",cat:"主食",price:24.0,cal:502},
-  {name:"双层吉士汉堡",cat:"主食",price:22.0,cal:460},
-  {name:"麦香鸡",cat:"主食",price:14.0,cal:410},
-  {name:"招财牛堡",cat:"主食",price:25.0,cal:560},
-  {name:"中薯条",cat:"小食",price:12.0,cal:320},
-  {name:"麦辣鸡翅(2块)",cat:"小食",price:11.0,cal:290},
-  {name:"玉米杯",cat:"小食",price:9.0,cal:130},
-  {name:"中可乐",cat:"饮料",price:9.0,cal:150},
-  {name:"雪碧",cat:"饮料",price:9.0,cal:150},
-  {name:"美禄",cat:"饮料",price:11.0,cal:200},
-  {name:"红茶",cat:"饮料",price:8.0,cal:5},
-  {name:"圆筒冰淇淋",cat:"甜品",price:5.0,cal:180},
-  {name:"苹果派",cat:"甜品",price:7.0,cal:240},
-  {name:"麦旋风",cat:"甜品",price:12.0,cal:350},
+// —— 官方实价快照（2026-10-09 · storeCode=1450713 · query-meals 实拉），算法与 scripts/mcd_mcp.py recommend_real() 一致 ——
+const REAL_DEALS = [
+  {n:"全明星双人分享餐八件套",cat:"小食拼盘/多人餐",cur:49.9,orig:114.5},
+  {n:"BFF四宫格小食盘双人餐",cat:"小食拼盘/多人餐",cur:62.9,orig:122.5},
+  {n:"人气超值四件套随心选",cat:"精选单人餐",cur:28.0,orig:57.0},
+  {n:"安格斯厚牛堡四件套随心选",cat:"精选单人餐",cur:37.0,orig:66.0},
+  {n:"麦辣鸡腿堡四件套",cat:"鸡肉汉堡/卷",cur:28.0,orig:57.0},
+  {n:"板烧鸡腿堡四件套",cat:"鸡肉汉堡/卷",cur:28.0,orig:57.0},
+  {n:"堡堡随心拼（7件任选）",cat:"小食拼盘/多人餐",cur:72.5,orig:101.5},
+  {n:"培根安格斯厚牛堡四件套",cat:"安格斯MAX厚牛堡",cur:37.0,orig:66.0},
+  {n:"芝士安格斯厚牛堡四件套",cat:"安格斯MAX厚牛堡",cur:37.0,orig:66.0},
+  {n:"龙焰美味四件套",cat:"人气热卖",cur:29.0,orig:57.0},
+  {n:"龙焰鸡腿堡四件套",cat:"鸡肉汉堡/卷",cur:29.0,orig:57.0},
+  {n:"薄皮V翅双拼十翅",cat:"小食拼盘/多人餐",cur:49.9,orig:77.0},
+  {n:"酥酥多笋卷四件套",cat:"鸡肉汉堡/卷",cur:28.0,orig:55.0},
+  {n:"鱼牛汉堡四件套随心选",cat:"精选单人餐",cur:32.0,orig:58.5},
+  {n:"巨无霸四件套",cat:"巨无霸牛鱼肉堡",cur:32.0,orig:58.5},
+  {n:"不素之霸双层牛堡四件套",cat:"巨无霸牛鱼肉堡",cur:32.0,orig:58.5},
+  {n:"培根蔬萃双层牛堡四件套",cat:"巨无霸牛鱼肉堡",cur:32.0,orig:58.5},
+  {n:"双层深海鳕鱼堡四件套",cat:"巨无霸牛鱼肉堡",cur:32.0,orig:58.5},
+  {n:"龙焰芝士棒鸡腿堡四件套",cat:"鸡肉汉堡/卷",cur:32.0,orig:57.0},
+  {n:"大堡口福三件套",cat:"大堡口福单人餐",cur:22.9,orig:47.0},
 ];
-const COUPONS = [
-  {name:"满40减8元",type:"fullreduce",threshold:40,off:8},
-  {name:"指定汉堡买一送一",type:"bogo",target:"堡"},
-  {name:"中薯条立减3元",type:"itemoff",target:"薯条",off:3},
-  {name:"甜品第二件半价",type:"half2",target:"甜品"},
-];
-function applyBest(combo,yuan){
-  let bestOff=0,bestName="无可用券";const names=combo.map(c=>c.name);
-  const nMains=combo.filter(c=>c.cat==="主食").length;
-  for(const cp of COUPONS){
-    let off=0;
-    if(cp.type==="fullreduce"&&yuan>=cp.threshold) off=cp.off;
-    else if(cp.type==="itemoff"&&names.some(n=>n.includes(cp.target))) off=cp.off;
-    else if(cp.type==="bogo"&&nMains>=2&&names.some(n=>n.includes("堡")))
-      off=Math.min(...combo.filter(c=>c.cat==="主食").map(c=>c.price));
-    else if(cp.type==="half2"&&names.some(n=>n.includes(cp.target))){
-      const sw=combo.filter(c=>c.name.includes(cp.target)).map(c=>c.price); if(sw.length) off=Math.max(...sw)/2;
-    }
-    if(off>bestOff){bestOff=off;bestName=cp.name;}
-  }
-  return {net:Math.round((yuan-bestOff)*100)/100,coupon:bestName,saved:Math.round(bestOff*100)/100};
-}
 function recommend(budget){
-  const mains=MENU.filter(m=>m.cat==="主食"),sides=MENU.filter(m=>m.cat==="小食"),
-        drinks=MENU.filter(m=>m.cat==="饮料"),sweets=MENU.filter(m=>m.cat==="甜品");
-  const combos=[];
-  for(const m of mains)for(const s of [...sides,null])for(const d of [...drinks,null]){
-    const p=[m];if(s)p.push(s);if(d)p.push(d);combos.push(p);}
-  for(const m of mains)for(const sw of [...sweets,null]){const p=[m];if(sw)p.push(sw);combos.push(p);}
-  for(const a of mains)for(const b of mains)for(const s of [...sides,null])for(const d of [...drinks,null]){
-    const p=[a,b];if(s)p.push(s);if(d)p.push(d);combos.push(p);}
-  const res=[];
-  for(const combo of combos){
-    const yuan=combo.reduce((s,c)=>s+c.price,0);
-    if(yuan<=0||yuan>budget+0.001)continue;
-    const ap=applyBest(combo,yuan);
-    const cal=combo.reduce((s,c)=>s+c.cal,0),cats=new Set(combo.map(c=>c.cat)).size;
-    const value=Math.round((cal+cats*40)/ap.net*10)/10;
-    res.push({combo:combo.map(c=>c.name).join(" + "),origin:Math.round(yuan*100)/100,
-      net:ap.net,coupon:ap.coupon,saved:ap.saved,cal,value});
-  }
-  res.sort((a,b)=>b.saved-a.saved||b.value-a.value);
-  return res.slice(0,3);
+  return REAL_DEALS
+    .filter(d=>d.cur>0&&d.cur<=budget+0.001)
+    .map(d=>({...d,saved:Math.round((d.orig-d.cur)*100)/100}))
+    .sort((a,b)=>b.saved-a.saved||a.cur-b.cur)
+    .slice(0,3);
 }
 function run(){
   const b=parseFloat(document.getElementById("budget").value)||30;
   const recs=recommend(b);const out=document.getElementById("out");
-  if(!recs.length){out.innerHTML='<div class="empty">😶 该预算内凑不出合适组合，试着放宽预算。</div>';return;}
+  if(!recs.length){out.innerHTML='<div class="empty">😶 该预算内暂无官方折扣套餐，试着放宽预算（或换门店）。</div>';return;}
   out.innerHTML=recs.map((r,i)=>`
     <div class="rec"><div class="rank">${i+1}</div><div class="body">
-      <div class="combo">${r.combo}</div>
-      <div class="meta">原价 <b>¥${r.origin.toFixed(2)}</b> → 用券[<span class="badge">${r.coupon}</span>]后
-      <b>¥${r.net.toFixed(2)}</b>，<span class="save">省 ¥${r.saved.toFixed(2)}</span>
-      ｜ 约 ${r.cal} 千卡 ｜ 划算指数 ${r.value}</div>
+      <div class="combo">${r.n}</div>
+      <div class="meta">官方现价 <b>¥${r.cur.toFixed(2)}</b>（原价 ¥${r.orig.toFixed(2)}），
+      <span class="save">立省 ¥${r.saved.toFixed(2)}</span>｜${r.cat}</div>
     </div></div>`).join("")
-    +'<div class="note">排序优先看「省多少」，其次看「划算指数=（总热量+品类×40）÷用券后价」。真实运行由 MCP 返回实时价。</div>';
+    +'<div class="note">排序：官方折扣（原价-现价）降序，与 Python 端 recommend_real() 一致；实际下单再叠加「可领券」能更省（见 daily 日报）。</div>';
 }
 run();
 </script>

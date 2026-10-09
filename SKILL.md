@@ -43,11 +43,15 @@ WorkBuddy 用 Bash/执行命令跑 `scripts/mcd_mcp.py`：
 
 ```bash
 export MCD_MCP_TOKEN="你的token"
-python scripts/mcd_mcp.py list                       # 列出 24 个工具及参数
+python scripts/mcd_mcp.py list                       # 列出 37 个工具及参数
+python scripts/mcd_mcp.py save --budget 60            # ★省钱最优解（真实官方价）
+python scripts/mcd_mcp.py daily                       # ★今日最划算日报（活动+券+真实价）
+python scripts/mcd_mcp.py brief                       # 今日麦麦情报（时间+券+活动+热量）
 python scripts/mcd_mcp.py call available-coupons      # 查可领券
-python scripts/mcd_mcp.py call auto-bind-coupons      # 一键领券
-python scripts/mcd_mcp.py call query-nearby-stores --args '{"city":"上海"}'
+python scripts/mcd_mcp.py call auto-bind-coupons      # 一键领券（写操作，先确认）
+python scripts/mcd_mcp.py call query-nearby-stores --args '{"beType":1,"searchType":2,"city":"上海","keyword":"人民广场"}'
 ```
+> 注意：`query-nearby-stores` 的 `city` 和 `keyword` **必须同时提供**，只传 city 会报「城市名或者关键词不能为空」。
 
 ## 调用原则
 
@@ -67,22 +71,25 @@ python scripts/mcd_mcp.py call query-nearby-stores --args '{"city":"上海"}'
 ## 场景工作流
 
 ### 0. ★ 省钱最优解引擎（核心创新）
-用户给预算（如"60 块配两个人吃的怎么点最省"）→ `query-meals`（菜单）→ 引擎枚举单人餐/双人分享餐组合 → `calculate-price`（核价，分→元）→ `my-coupons`（我的券）→ 匹配满减 / 买一送一（≥2 主食才生效）/ 单品立减 / 第二件半价 → 输出 Top3（原价/用券后/省多少/千卡/划算指数）。CLI：`python scripts/mcd_mcp.py save --budget 60`（加 `--demo` 离线演示）。这是本项目区别于"纯工具封装"的关键，务必优先展示。
+用户给预算（如"60 块配两个人吃的怎么点最省"）→ 引擎自动走 `query-nearby-stores`（定位门店，city+keyword 必须同传）→ `query-meals`（拉 119 项真实餐品，含 `currentPrice`/`originalPrice`）→ 按官方折扣（原价-现价）排序，单人餐/双人餐分类输出 Top3。CLI：`python scripts/mcd_mcp.py save --budget 60`（真实官方价；加 `--demo` 离线演示；失败自动退回演示数据）。**省额全部来自官方数据，无虚构**。这是本项目区别于"纯工具封装"的关键，务必优先展示。
+
+### 0.5 ★ 今日最划算日报（daily）
+用户问"今天吃什么划算/有什么优惠"→ CLI：`python scripts/mcd_mcp.py daily`（一次编排 `now-time-info` + `campaign-calendar` 今日活动 + `available-coupons` 可领券 + `query-meals` 折扣 Top5）。轻量情报用 `brief`（不含价格）。
 
 ### 1. 智能点餐推荐
 `now-time-info`（拿当前时间）→ `query-nearby-stores`（选定门店，到店自提/得来速/麦乐送）→ `query-meals`（按品类/关键词查餐品）→ 结合用户口味/预算给推荐 → `calculate-price`（核价，注意除以 100）→ 确认后 `create-order`。
 
 ### 2. 优惠券聚合与一键领取
-`available-coupons`（看麦麦省当前可领券）→ 告知用户 → 确认后 `auto-bind-coupons`（一键领所有可用券）→ `my-coupons`（展示已到账券）。
+`available-coupons`（看麦麦省当前可领券）→ 告知用户 → 确认后 `auto-bind-coupons`（一键领所有可用券）→ `query-my-coupons`（展示已到账券）。
 
 ### 3. 附近门店查询
 `query-nearby-stores`（到店自提场景，支持 city / keyword 过滤）→ 返回可点餐门店列表。
 
 ### 4. 积分商城兑换
-`query-my-account`（查积分余额）→ `mall-points-products`（逛积分商城）→ `mall-product-detail`（看详情）→ 确认后 `mall-create-order`（虚拟券）/ `mall-create-order-physical`（实物）。
+`query-my-account`（查积分余额）→ `mall-points-products`（逛积分商城）→ `mall-product-detail`（看详情）→ 确认后 `mall-create-order`（用 `spuCategory` 区分：1=虚拟券、2=实物，实物需 addressId）。
 
 ### 5. 活动日历
-`campaign-calender` 查询当月营销活动（进行中/往期/未来），用于结合活动给出点餐或领券建议。
+`campaign-calendar` 查询当月营销活动（进行中/往期/未来），用于结合活动给出点餐或领券建议。
 
 ## 隐私与安全
 
