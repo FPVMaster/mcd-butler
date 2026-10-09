@@ -349,6 +349,89 @@ def _print_recommend(recs, budget):
     print("💡 排序优先看「省多少」，其次看「划算指数=（总热量+品类×40）÷用券后价」；下单前请与麦当劳实时价格核对。")
 
 
+def _sc(mcp, tool, args=None):
+    """取工具返回的 structuredContent（真实模式走官方 MCP，demo 模式走内置 Mock）"""
+    r = mcp.call(tool, args or {})
+    return r.get("result", {}).get("structuredContent", {}) or {}
+
+
+def _parse_nutrition(data_str):
+    """从 list-nutrition-foods 的 data 文本里解析 (餐品名, 热量kcal) 列表"""
+    rows = []
+    for line in (data_str or "").splitlines():
+        line = line.strip()
+        if not line:
+            continue
+        if line.startswith("[") or (":" in line and line.endswith(":")):
+            continue
+        parts = [p.strip() for p in line.split(",")]
+        if len(parts) < 4:
+            continue
+        try:
+            kcal = int(parts[3])
+        except ValueError:
+            continue
+        rows.append((parts[0], kcal))
+    return rows
+
+
+def brief(mcp):
+    """今日麦麦情报：真实多工具编排（时间+券+活动+低卡热量），只读、无写操作。"""
+    print("🍔 麦麦管家 · 今日麦麦情报（真实调用麦当劳中国官方 MCP）")
+    print("=" * 64)
+    # 1) 时间
+    try:
+        t = _sc(mcp, "now-time-info")
+        td = t.get("data", t)
+        print("🕐 当前时间：%s（%s）" % (td.get("formatted") or td.get("datetime"), td.get("dayOfWeek")))
+    except Exception as e:
+        print("🕐 时间获取失败：%s" % e)
+    # 2) 可领券
+    try:
+        ac = _sc(mcp, "available-coupons")
+        coupons = ac.get("data", []) if isinstance(ac.get("data"), list) else []
+        print("\n🎟️  今日可领券（前 8 张）：")
+        for c in coupons[:8]:
+            print("   · %s（%s）" % (c.get("couponName"), c.get("label")))
+        if len(coupons) > 8:
+            print("   ……共 %d 张可领" % len(coupons))
+    except Exception as e:
+        print("\n🎟️  券获取失败：%s" % e)
+    # 3) 活动日历
+    try:
+        cc = _sc(mcp, "campaign-calendar")
+        daily = cc.get("data", {}).get("dailyList", []) if isinstance(cc.get("data"), dict) else []
+        print("\n📅 近期活动（前 5 条）：")
+        shown = 0
+        for d in daily:
+            for ev in d.get("events", []):
+                title = (ev.get("activityTitle")
+                         or (ev.get("articleDto") or {}).get("title")
+                         or ev.get("activitySubTitle")
+                         or ev.get("resourceId"))
+                if title:
+                    print("   · [%s] %s" % (d.get("dateText", "").split()[0] if d.get("dateText") else "", title))
+                    shown += 1
+                    if shown >= 5:
+                        break
+            if shown >= 5:
+                break
+    except Exception as e:
+        print("\n📅 活动获取失败：%s" % e)
+    # 4) 低卡轻食（真实热量）
+    try:
+        nf = _sc(mcp, "list-nutrition-foods")
+        rows = _parse_nutrition(nf.get("data", ""))
+        rows.sort(key=lambda x: x[1])
+        print("\n🥗 低卡轻食推荐（真实热量 Top5）：")
+        for name, kcal in rows[:5]:
+            print("   · %s —— %d kcal" % (name, kcal))
+    except Exception as e:
+        print("\n🥗 热量获取失败：%s" % e)
+    print("\n" + "=" * 64)
+    print("💡 以上均来自麦当劳中国官方 MCP 实时返回；下单/领券请在 WorkBuddy 中确认。")
+
+
 def main():
     parent = argparse.ArgumentParser(add_help=False)
     parent.add_argument("--demo", action="store_true", help="离线演示模式（无需 Token）")
@@ -364,6 +447,7 @@ def main():
     s.add_argument("--budget", type=float, default=30.0, help="预算（元）")
     s.add_argument("--city", default="上海", help="城市")
     sub.add_parser("demo", parents=[parent], help="打印完整演示对话")
+    sub.add_parser("brief", parents=[parent], help="★今日麦麦情报（真实多工具编排）")
 
     args = p.parse_args()
     demo = bool(args.demo) or os.environ.get("MCD_DEMO") == "1"
@@ -389,6 +473,8 @@ def main():
         print(json.dumps(mcp.call("now-time-info"), ensure_ascii=False, indent=2))
         print(json.dumps(mcp.call("available-coupons"), ensure_ascii=False, indent=2))
         _print_recommend(mcp.recommend(30, "上海"), 30)
+    elif args.cmd == "brief":
+        brief(mcp)
 
 
 if __name__ == "__main__":

@@ -72,8 +72,9 @@ mcd-butler/
 ├── MCP_INTEGRATION.md        # MCP Server/Tool/调用流程/业务价值
 ├── workbuddy.md              # 本文档：WorkBuddy 开发对话上下文
 ├── SKILL.md                  # 技能主体（Agent 加载）
-├── references/tools.md       # 工具清单
-├── scripts/mcd_mcp.py        # 零依赖 MCP 客户端 + 省钱最优解引擎
+├── references/tools.md       # 37 个真实工具清单（实测校准版）
+├── scripts/mcd_mcp.py        # 零依赖 MCP 客户端 + 省钱引擎 + 今日情报
+├── evidence-real.md          # 真实调用证据（init/工具清单/brief 实跑）
 └── demo/                     # 演示材料（index.html 交互页 + sample_run.md）
 ```
 
@@ -97,5 +98,19 @@ mcd-butler/
 
 **剩余需用户本人完成（AI 不能代劳）：**
 
-- 拿到 `MCD_MCP_TOKEN` 后跑真实 `save` / `call` 截图补进 README，坐实"真实调用"。
 - 发布到个人 GitHub 公开仓库、通过官方 Issue 报名、拉 Star（Star>0 才进榜）。
+
+---
+
+## 第八步：真实联调官方 MCP（Token 到位后）
+
+**用户提供 MCP Token 后，WorkBuddy 完成真实联调（全程只读，无任何写操作）：**
+
+1. **握手验证**：`initialize` 返回 `serverInfo: mcd-mcp v1.0.0`（协议 2025-06-18），Token 有效。
+2. **工具清单实测**：`list` 返回 **37 个真实工具**（多于早期资料的 24 个），含派对线（`query-party-*` 5 个）、抽奖（`draw-lottery`/`query-lottery-info`）、营养热量（`list-nutrition-foods`，170+ 真实餐品 kcal）等。据此将 `references/tools.md` 重写为实测校准版。
+3. **真实数据抓取**：`available-coupons` 返回 9 张真实可领券（麦旋风任选/薯薯任选/免费脆薯饼/人气麦旋风买一送一/9.9 元中杯冰美式等）；`campaign-calendar` 返回 10/7–10/23 真实活动（麦当劳 X PEACEMINUSONE 联名、韩式风味蘸酱、9.9 元早餐两件套等）；`now-time-info` 返回服务器时间；`list-nutrition-foods` 返回 170+ 餐品真实热量表。
+4. **新增 `brief` 命令（真实多工具编排）**：把时间 + 券 + 活动 + 低卡热量四个工具的真实返回编排成"今日麦麦情报"一次输出，作为"多工具编排"能力的实跑证据。
+5. **入参结构实测修正**：`now-time-info` 时间字段在 `structuredContent.data` 子对象；`campaign-calendar` 活动标题优先取 `activityTitle`、为空取 `articleDto.title`。`query-meals` 真实 schema 含 `currentPrice`/`originalPrice`，确认为省钱引擎接入真实价格的接口点（需门店参数）。
+6. **生成 `evidence-real.md`**：完整记录 init 握手、37 工具清单、brief 实跑输出与合规说明；README 新增"真实调用证据"章节。
+
+**本轮验证：** `py_compile` 通过；`init` / `list` / `brief` 真实调用全部成功；全程仅调用只读工具（`now-time-info` / `available-coupons` / `campaign-calendar` / `list-nutrition-foods`），未触发下单、领券、抽奖等任何写操作。
