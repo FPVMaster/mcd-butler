@@ -73,5 +73,29 @@ mcd-butler/
 ├── workbuddy.md              # 本文档：WorkBuddy 开发对话上下文
 ├── SKILL.md                  # 技能主体（Agent 加载）
 ├── references/tools.md       # 工具清单
-└── scripts/mcd_mcp.py        # 零依赖 MCP 客户端
+├── scripts/mcd_mcp.py        # 零依赖 MCP 客户端 + 省钱最优解引擎
+└── demo/                     # 演示材料（index.html 交互页 + sample_run.md）
 ```
+
+---
+
+## 第七步：质量升级（冲刺获奖浓度）
+
+**用户反馈："要质量高有获奖的可能" —— WorkBuddy 对初版做诚实体检后，认定原版是"24 工具薄封装"，缺记忆点与真实差异化，遂进行以下升级：**
+
+1. **新增「省钱最优解引擎」（`scripts/mcd_mcp.py` 的 `recommend()`）** —— 把菜单、价格试算、优惠券三类工具**编排成一次决策**：枚举单人餐/双人分享餐组合 → `calculate-price` 核价（严守分/元规则）→ 匹配满减/买一送一/单品立减/第二件半价 → 输出省得最多 + 吃得最值的 Top3。这是区别于"纯工具封装"的核心创新。
+2. **新增离线 Demo 模式（`--demo` / `MCD_DEMO=1`）** —— 内置真实感 Mock 数据，无 Token 也能跑通 `init/list/call/save` 全流程。评委/访客不填凭据即可验证项目可用，降低拿 Star 的门槛。
+3. **新增可交互演示页 `demo/index.html`** —— 纯前端、无网络、无 Token，浏览器打开填预算即看推荐结果（算法与 Python 端保持一致），作为 GitHub README 的直观入口。
+4. **修正 Demo 逻辑 bug** —— 初版"买一送一"会被错误作用在单个汉堡+冰淇淋上凭空省 22 元；改为仅在组合含 ≥2 个主食（堡类）时生效，并补充双人分享餐组合，确保逻辑真实可信。
+5. **重写 README 与 SKILL.md / MCP_INTEGRATION.md** —— 一号卖点改为引擎而非工具列表；README 新增"冲奖策略"章节（榜单按 Star 定名次，先让人愿意点 Star 再谈质量）。
+
+**本轮验证：**
+
+- `py_compile` 语法校验：通过。
+- 离线引擎实测（预算 ¥60）：正确命中"买一送一"（麦辣鸡腿堡×2 + 玉米杯 + 红茶，原价 ¥60 → 用券后 ¥38.50，省 ¥21.50），且无券可命中时如实显示"无可用券"（预算 ¥30 场景），逻辑自洽。
+- `demo/sample_run.md` 由真实 CLI 输出生成，`demo/index.html` 在浏览器中可独立运行（已离线自检数据结构）。
+
+**剩余需用户本人完成（AI 不能代劳）：**
+
+- 拿到 `MCD_MCP_TOKEN` 后跑真实 `save` / `call` 截图补进 README，坐实"真实调用"。
+- 发布到个人 GitHub 公开仓库、通过官方 Issue 报名、拉 Star（Star>0 才进榜）。

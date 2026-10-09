@@ -66,6 +66,9 @@ python scripts/mcd_mcp.py call query-nearby-stores --args '{"city":"上海"}'
 
 ## 场景工作流
 
+### 0. ★ 省钱最优解引擎（核心创新）
+用户给预算（如"60 块配两个人吃的怎么点最省"）→ `query-meals`（菜单）→ 引擎枚举单人餐/双人分享餐组合 → `calculate-price`（核价，分→元）→ `my-coupons`（我的券）→ 匹配满减 / 买一送一（≥2 主食才生效）/ 单品立减 / 第二件半价 → 输出 Top3（原价/用券后/省多少/千卡/划算指数）。CLI：`python scripts/mcd_mcp.py save --budget 60`（加 `--demo` 离线演示）。这是本项目区别于"纯工具封装"的关键，务必优先展示。
+
 ### 1. 智能点餐推荐
 `now-time-info`（拿当前时间）→ `query-nearby-stores`（选定门店，到店自提/得来速/麦乐送）→ `query-meals`（按品类/关键词查餐品）→ 结合用户口味/预算给推荐 → `calculate-price`（核价，注意除以 100）→ 确认后 `create-order`。
 

@@ -1,0 +1,162 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>麦麦管家 mcd-butler · 省钱最优解演示</title>
+<style>
+  :root{
+    --red:#e4002b; --red-d:#b80023; --ink:#222; --mut:#777;
+    --bg:#fff7f3; --card:#fff; --line:#ffe0d6; --ok:#1a9e57;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;font-family:-apple-system,"PingFang SC","Microsoft YaHei",Segoe UI,Roboto,sans-serif;
+    background:linear-gradient(180deg,#fff 0%,var(--bg) 100%);color:var(--ink);line-height:1.6}
+  .wrap{max-width:760px;margin:0 auto;padding:28px 18px 60px}
+  header{text-align:center;padding:14px 0 6px}
+  .logo{font-size:30px;font-weight:800;color:var(--red);letter-spacing:1px}
+  .sub{color:var(--mut);font-size:14px;margin-top:4px}
+  .panel{background:var(--card);border:1px solid var(--line);border-radius:16px;
+    padding:18px;margin:16px 0;box-shadow:0 6px 20px rgba(228,0,43,.06)}
+  .panel h2{margin:0 0 10px;font-size:17px;color:var(--red-d)}
+  .ctrl{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
+  .ctrl input{width:150px;padding:10px 12px;border:1px solid var(--line);border-radius:10px;font-size:16px}
+  .ctrl button{background:var(--red);color:#fff;border:0;border-radius:10px;padding:10px 18px;
+    font-size:15px;cursor:pointer;font-weight:600}
+  .ctrl button:active{background:var(--red-d)}
+  .note{color:var(--mut);font-size:12px;margin-top:8px}
+  .rec{display:flex;gap:12px;padding:12px;border:1px solid var(--line);border-radius:12px;margin:10px 0;background:#fff}
+  .rec .rank{flex:0 0 34px;height:34px;border-radius:50%;background:var(--red);color:#fff;
+    display:flex;align-items:center;justify-content:center;font-weight:800}
+  .rec .body{flex:1}
+  .rec .combo{font-weight:700;font-size:15px}
+  .rec .meta{font-size:13px;color:var(--mut);margin-top:3px}
+  .rec .save{color:var(--ok);font-weight:700}
+  .badge{display:inline-block;background:#fff0e6;color:var(--red-d);border-radius:6px;
+    padding:1px 8px;font-size:12px;margin-right:6px}
+  .empty{color:var(--mut);font-size:14px;padding:10px 0}
+  footer{text-align:center;color:var(--mut);font-size:12px;margin-top:24px}
+  code{background:#fff0e6;padding:1px 6px;border-radius:5px;color:var(--red-d);font-size:13px}
+  a{color:var(--red)}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div class="logo">🍔 麦麦管家 mcd-butler</div>
+    <div class="sub">基于麦当劳中国官方 MCP 的「省钱最优解引擎」· 纯前端演示（无需 Token / 无网络）</div>
+  </header>
+
+  <div class="panel">
+    <h2>① 试试看：告诉我预算，我帮你算最划算点法</h2>
+    <div class="ctrl">
+      <span>预算 ¥</span>
+      <input id="budget" type="number" value="60" min="10" step="1" />
+      <button onclick="run()">算最省方案</button>
+    </div>
+    <div class="note">演示数据为示意菜单与券，仅用于展示算法；真实运行由 WorkBuddy 调用官方 MCP 返回实时价。</div>
+    <div id="out" style="margin-top:12px"></div>
+  </div>
+
+  <div class="panel">
+    <h2>② 这是什么</h2>
+    <p>「麦麦管家」是一个跑在 <b>WorkBuddy</b>（及任意支持 MCP 的 Agent）里的技能，接入<b>麦当劳中国官方 MCP Server</b>
+    （<code>mcp.mcd.cn</code>，24 个工具）。它把"翻 App 比价、找券、查积分"压缩成一句话，并提供一个别的封装做不到的能力——</p>
+    <p><span class="badge">核心创新</span><b>省钱最优解引擎</b>：给定预算，自动组合「菜单 + 优惠券 + 价格试算」，枚举单人餐 / 双人分享餐，
+    匹配满减、买一送一、单品立减、第二件半价等券规则，输出"省得最多 + 吃得最值"的 Top3 组合。</p>
+  </div>
+
+  <div class="panel">
+    <h2>③ 怎么跑起来</h2>
+    <p><b>零依赖 Python 客户端</b>（仅需标准库）：</p>
+    <p><code>python scripts/mcd_mcp.py save --budget 60 --demo</code> &nbsp;← 离线演示（无需 Token）</p>
+    <p><code>python scripts/mcd_mcp.py save --budget 60</code> &nbsp;← 真实调用（需 <code>MCD_MCP_TOKEN</code>）</p>
+    <p>或直接在 WorkBuddy 里说："60 块以内帮我配两个人吃的，怎么点最省"。</p>
+  </div>
+
+  <footer>
+    参赛作品 · 麦当劳中国 1024 程序员节创意开发大赛 · 非官方产品，价格以麦当劳实时为准<br/>
+    GitHub: M-China/mcd-developer-innovation-challenge
+  </footer>
+</div>
+
+<script>
+// —— 与 scripts/mcd_mcp.py 保持一致的示意数据与算法（前端可交互演示）——
+const MENU = [
+  {name:"麦辣鸡腿堡",cat:"主食",price:21.5,cal:517},
+  {name:"板烧鸡腿堡",cat:"主食",price:24.0,cal:502},
+  {name:"双层吉士汉堡",cat:"主食",price:22.0,cal:460},
+  {name:"麦香鸡",cat:"主食",price:14.0,cal:410},
+  {name:"招财牛堡",cat:"主食",price:25.0,cal:560},
+  {name:"中薯条",cat:"小食",price:12.0,cal:320},
+  {name:"麦辣鸡翅(2块)",cat:"小食",price:11.0,cal:290},
+  {name:"玉米杯",cat:"小食",price:9.0,cal:130},
+  {name:"中可乐",cat:"饮料",price:9.0,cal:150},
+  {name:"雪碧",cat:"饮料",price:9.0,cal:150},
+  {name:"美禄",cat:"饮料",price:11.0,cal:200},
+  {name:"红茶",cat:"饮料",price:8.0,cal:5},
+  {name:"圆筒冰淇淋",cat:"甜品",price:5.0,cal:180},
+  {name:"苹果派",cat:"甜品",price:7.0,cal:240},
+  {name:"麦旋风",cat:"甜品",price:12.0,cal:350},
+];
+const COUPONS = [
+  {name:"满40减8元",type:"fullreduce",threshold:40,off:8},
+  {name:"指定汉堡买一送一",type:"bogo",target:"堡"},
+  {name:"中薯条立减3元",type:"itemoff",target:"薯条",off:3},
+  {name:"甜品第二件半价",type:"half2",target:"甜品"},
+];
+function applyBest(combo,yuan){
+  let bestOff=0,bestName="无可用券";const names=combo.map(c=>c.name);
+  const nMains=combo.filter(c=>c.cat==="主食").length;
+  for(const cp of COUPONS){
+    let off=0;
+    if(cp.type==="fullreduce"&&yuan>=cp.threshold) off=cp.off;
+    else if(cp.type==="itemoff"&&names.some(n=>n.includes(cp.target))) off=cp.off;
+    else if(cp.type==="bogo"&&nMains>=2&&names.some(n=>n.includes("堡")))
+      off=Math.min(...combo.filter(c=>c.cat==="主食").map(c=>c.price));
+    else if(cp.type==="half2"&&names.some(n=>n.includes(cp.target))){
+      const sw=combo.filter(c=>c.name.includes(cp.target)).map(c=>c.price); if(sw.length) off=Math.max(...sw)/2;
+    }
+    if(off>bestOff){bestOff=off;bestName=cp.name;}
+  }
+  return {net:Math.round((yuan-bestOff)*100)/100,coupon:bestName,saved:Math.round(bestOff*100)/100};
+}
+function recommend(budget){
+  const mains=MENU.filter(m=>m.cat==="主食"),sides=MENU.filter(m=>m.cat==="小食"),
+        drinks=MENU.filter(m=>m.cat==="饮料"),sweets=MENU.filter(m=>m.cat==="甜品");
+  const combos=[];
+  for(const m of mains)for(const s of [...sides,null])for(const d of [...drinks,null]){
+    const p=[m];if(s)p.push(s);if(d)p.push(d);combos.push(p);}
+  for(const m of mains)for(const sw of [...sweets,null]){const p=[m];if(sw)p.push(sw);combos.push(p);}
+  for(const a of mains)for(const b of mains)for(const s of [...sides,null])for(const d of [...drinks,null]){
+    const p=[a,b];if(s)p.push(s);if(d)p.push(d);combos.push(p);}
+  const res=[];
+  for(const combo of combos){
+    const yuan=combo.reduce((s,c)=>s+c.price,0);
+    if(yuan<=0||yuan>budget+0.001)continue;
+    const ap=applyBest(combo,yuan);
+    const cal=combo.reduce((s,c)=>s+c.cal,0),cats=new Set(combo.map(c=>c.cat)).size;
+    const value=Math.round((cal+cats*40)/ap.net*10)/10;
+    res.push({combo:combo.map(c=>c.name).join(" + "),origin:Math.round(yuan*100)/100,
+      net:ap.net,coupon:ap.coupon,saved:ap.saved,cal,value});
+  }
+  res.sort((a,b)=>b.saved-a.saved||b.value-a.value);
+  return res.slice(0,3);
+}
+function run(){
+  const b=parseFloat(document.getElementById("budget").value)||30;
+  const recs=recommend(b);const out=document.getElementById("out");
+  if(!recs.length){out.innerHTML='<div class="empty">😶 该预算内凑不出合适组合，试着放宽预算。</div>';return;}
+  out.innerHTML=recs.map((r,i)=>`
+    <div class="rec"><div class="rank">${i+1}</div><div class="body">
+      <div class="combo">${r.combo}</div>
+      <div class="meta">原价 <b>¥${r.origin.toFixed(2)}</b> → 用券[<span class="badge">${r.coupon}</span>]后
+      <b>¥${r.net.toFixed(2)}</b>，<span class="save">省 ¥${r.saved.toFixed(2)}</span>
+      ｜ 约 ${r.cal} 千卡 ｜ 划算指数 ${r.value}</div>
+    </div></div>`).join("")
+    +'<div class="note">排序优先看「省多少」，其次看「划算指数=（总热量+品类×40）÷用券后价」。真实运行由 MCP 返回实时价。</div>';
+}
+run();
+</script>
+</body>
+</html>
