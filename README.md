@@ -6,6 +6,10 @@
 [![License](https://img.shields.io/badge/license-MIT-green)]()
 [![Python](https://img.shields.io/badge/Python-3.8+-blue)]()
 
+![麦麦管家 · 省钱最优解演示](demo/screenshot.png)
+
+**🎮 在线体验（无需安装、无需 Token）**：<https://fpvmaster.github.io/mcd-butler/> —— 浏览器打开，填预算即看推荐。
+
 ---
 
 ## 一句话亮点
@@ -29,6 +33,8 @@
 - 排序：优先"省多少"，其次"划算指数 =（总热量 + 品类×40）÷ 用券后价"。
 
 **离线也能跑**：加 `--demo`（或设 `MCD_DEMO=1`）走内置真实感 Mock 数据，无需 Token 即可演示全流程。
+
+**真实模式已接官方实时价**：配好 Token 后，引擎自动走 `query-nearby-stores → query-meals` 拉取 119 项真实餐品与官方现价/原价，**省额全部来自官方折扣，无任何虚构**（实跑证据见 [`evidence-real.md`](evidence-real.md)：预算 ¥60 命中「全明星双人分享餐八件套」¥49.9，原价 ¥114.5，**立省 ¥64.6**）。
 
 <details><summary>📌 点开看离线演示输出</summary>
 
@@ -106,8 +112,9 @@
 ```bash
 export MCD_MCP_TOKEN="你的token"        # Windows PowerShell: $env:MCD_MCP_TOKEN="你的token"
 python scripts/mcd_mcp.py init                        # 验证 Token
-python scripts/mcd_mcp.py save --budget 60             # 省钱最优解（真实）
+python scripts/mcd_mcp.py save --budget 60             # 省钱最优解（真实官方价）
 python scripts/mcd_mcp.py save --budget 60 --demo      # 省钱最优解（离线演示）
+python scripts/mcd_mcp.py daily                        # ★今日最划算日报（活动+券+真实价格）
 python scripts/mcd_mcp.py call available-coupons       # 查可领券
 python scripts/mcd_mcp.py call auto-bind-coupons       # 一键领券（写操作）
 python scripts/mcd_mcp.py call query-nearby-stores --args '{"city":"上海"}'
