@@ -116,11 +116,15 @@ export MCD_MCP_TOKEN="你的token"        # Windows PowerShell: $env:MCD_MCP_TOK
 python scripts/mcd_mcp.py init                        # 验证 Token
 python scripts/mcd_mcp.py save --budget 60             # 省钱最优解（真实官方价）
 python scripts/mcd_mcp.py save --budget 60 --demo      # 省钱最优解（离线演示）
+python scripts/mcd_mcp.py stores --city 北京 --keyword 王府井   # ★列出可选门店
+python scripts/mcd_mcp.py save --budget 60 --city 北京 --store-code 1950526   # ★自选门店算价
 python scripts/mcd_mcp.py daily                        # ★今日最划算日报（活动+券+真实价格）
 python scripts/mcd_mcp.py call available-coupons       # 查可领券
 python scripts/mcd_mcp.py call auto-bind-coupons       # 一键领券（写操作）
 python scripts/mcd_mcp.py call query-nearby-stores --args '{"city":"上海"}'
 ```
+
+> **门店价格自定义**：同一套餐在不同门店价格不同（实测「全明星双人分享餐」原价：上海 114.5 / 北京 117.0 / 广州 115.0）。先 `stores` 列出门店拿 `storeCode`，再用 `--store-code`（精确指定）或 `--store-index`（第几家）以该门店价格计算；在线演示页也有三城门店切换。
 
 仅用 Python 标准库，无需安装任何第三方包；Windows / macOS / Linux 通用。
 

@@ -50,11 +50,13 @@
   <div class="panel">
     <h2>① 试试看：告诉我预算，我帮你算最划算点法</h2>
     <div class="ctrl">
+      <span>门店</span>
+      <select id="store" style="padding:8px 10px;border-radius:8px;border:1px solid #e5c88f;font-size:15px;max-width:340px"></select>
       <span>预算 ¥</span>
       <input id="budget" type="number" value="60" min="10" step="1" />
       <button onclick="run()">算最省方案</button>
     </div>
-    <div class="note">下方为<b>官方实价快照</b>（2026-10-09 · 上海黄浦华旭国际大厦店，经 MCP <code>query-meals</code> 实拉）；真实运行由 WorkBuddy 调用官方 MCP 返回实时价。</div>
+    <div class="note">下方为<b>官方实价快照</b>（2026-10-09 · 三城门店 · 经 MCP <code>query-meals</code> 实拉）——<b>同一套餐不同门店价格不同</b>（双人餐原价 114.5 / 117.0 / 115.0），切换门店看价差；真实运行由 WorkBuddy 调用官方 MCP 返回任意门店实时价。</div>
     <div id="out" style="margin-top:12px"></div>
   </div>
 
@@ -81,8 +83,9 @@
 </div>
 
 <script>
-// —— 官方实价快照（2026-10-09 · storeCode=1450713 · query-meals 实拉），算法与 scripts/mcd_mcp.py recommend_real() 一致 ——
-const REAL_DEALS = [
+// —— 官方实价快照（2026-10-09 · 三城门店 · query-meals 实拉），算法与 scripts/mcd_mcp.py recommend_real() 一致 ——
+const REAL_STORES = [
+ {label:"上海 · 黄浦华旭国际大厦店",code:"1450713",deals:[
   {n:"全明星双人分享餐八件套",cat:"小食拼盘/多人餐",cur:49.9,orig:114.5},
   {n:"BFF四宫格小食盘双人餐",cat:"小食拼盘/多人餐",cur:62.9,orig:122.5},
   {n:"人气超值四件套随心选",cat:"精选单人餐",cur:28.0,orig:57.0},
@@ -102,10 +105,56 @@ const REAL_DEALS = [
   {n:"培根蔬萃双层牛堡四件套",cat:"巨无霸牛鱼肉堡",cur:32.0,orig:58.5},
   {n:"双层深海鳕鱼堡四件套",cat:"巨无霸牛鱼肉堡",cur:32.0,orig:58.5},
   {n:"龙焰芝士棒鸡腿堡四件套",cat:"鸡肉汉堡/卷",cur:32.0,orig:57.0},
-  {n:"大堡口福三件套",cat:"大堡口福单人餐",cur:22.9,orig:47.0},
+  {n:"大堡口福三件套",cat:"大堡口福单人餐",cur:22.9,orig:47.0}]},
+ {label:"北京 · 王府井新东安店",code:"1950526",deals:[
+  {n:"全明星双人分享餐八件套",cat:"小食拼盘/多人餐",cur:49.9,orig:117.0},
+  {n:"BFF四宫格小食盘双人餐",cat:"小食拼盘/多人餐",cur:62.9,orig:123.0},
+  {n:"人气超值四件套随心选",cat:"精选单人餐",cur:28.0,orig:57.0},
+  {n:"安格斯厚牛堡四件套随心选",cat:"精选单人餐",cur:37.0,orig:66.0},
+  {n:"麦辣鸡腿堡四件套",cat:"鸡肉汉堡/卷",cur:28.0,orig:57.0},
+  {n:"板烧鸡腿堡四件套",cat:"鸡肉汉堡/卷",cur:28.0,orig:57.0},
+  {n:"培根安格斯厚牛堡四件套",cat:"安格斯MAX厚牛堡",cur:37.0,orig:66.0},
+  {n:"芝士安格斯厚牛堡四件套",cat:"安格斯MAX厚牛堡",cur:37.0,orig:66.0},
+  {n:"龙焰美味四件套",cat:"人气热卖",cur:29.0,orig:57.0},
+  {n:"龙焰鸡腿堡四件套",cat:"鸡肉汉堡/卷",cur:29.0,orig:57.0},
+  {n:"酥酥多笋卷四件套",cat:"鸡肉汉堡/卷",cur:28.0,orig:55.5},
+  {n:"鱼牛汉堡四件套随心选",cat:"精选单人餐",cur:32.0,orig:58.5},
+  {n:"巨无霸四件套",cat:"巨无霸牛鱼肉堡",cur:32.0,orig:58.5},
+  {n:"不素之霸双层牛堡四件套",cat:"巨无霸牛鱼肉堡",cur:32.0,orig:58.5},
+  {n:"培根蔬萃双层牛堡四件套",cat:"巨无霸牛鱼肉堡",cur:32.0,orig:58.5},
+  {n:"双层深海鳕鱼堡四件套",cat:"巨无霸牛鱼肉堡",cur:32.0,orig:58.5},
+  {n:"大堡口福三件套",cat:"大堡口福单人餐",cur:22.9,orig:48.0},
+  {n:"龙焰芝士棒鸡腿堡四件套",cat:"鸡肉汉堡/卷",cur:32.0,orig:57.0},
+  {n:"薄皮V翅双拼十翅",cat:"小食拼盘/多人餐",cur:49.9,orig:74.5},
+  {n:"龙焰芝士棒鸡腿堡三件套",cat:"人气热卖",cur:29.9,orig:51.5}]},
+ {label:"广州 · 广垦天河1号店",code:"1400714",deals:[
+  {n:"全明星双人分享餐八件套",cat:"小食拼盘/多人餐",cur:49.9,orig:115.0},
+  {n:"BFF四宫格小食盘双人餐",cat:"小食拼盘/多人餐",cur:62.9,orig:122.5},
+  {n:"堡堡随心拼（7件任选）",cat:"小食拼盘/多人餐",cur:72.5,orig:103.0},
+  {n:"人气超值四件套随心选",cat:"精选单人餐",cur:28.0,orig:57.0},
+  {n:"安格斯厚牛堡四件套随心选",cat:"精选单人餐",cur:37.0,orig:66.0},
+  {n:"麦辣鸡腿堡四件套",cat:"鸡肉汉堡/卷",cur:28.0,orig:57.0},
+  {n:"板烧鸡腿堡四件套",cat:"鸡肉汉堡/卷",cur:28.0,orig:57.0},
+  {n:"培根安格斯厚牛堡四件套",cat:"安格斯MAX厚牛堡",cur:37.0,orig:66.0},
+  {n:"芝士安格斯厚牛堡四件套",cat:"安格斯MAX厚牛堡",cur:37.0,orig:66.0},
+  {n:"龙焰美味四件套",cat:"人气热卖",cur:29.0,orig:57.0},
+  {n:"龙焰鸡腿堡四件套",cat:"鸡肉汉堡/卷",cur:29.0,orig:57.0},
+  {n:"鱼牛汉堡四件套随心选",cat:"精选单人餐",cur:32.0,orig:59.0},
+  {n:"酥酥多笋卷四件套",cat:"鸡肉汉堡/卷",cur:28.0,orig:55.0},
+  {n:"巨无霸四件套",cat:"巨无霸牛鱼肉堡",cur:32.0,orig:59.0},
+  {n:"不素之霸双层牛堡四件套",cat:"巨无霸牛鱼肉堡",cur:32.0,orig:59.0},
+  {n:"培根蔬萃双层牛堡四件套",cat:"巨无霸牛鱼肉堡",cur:32.0,orig:59.0},
+  {n:"双层深海鳕鱼堡四件套",cat:"巨无霸牛鱼肉堡",cur:32.0,orig:59.0},
+  {n:"龙焰芝士棒鸡腿堡四件套",cat:"鸡肉汉堡/卷",cur:32.0,orig:57.0},
+  {n:"薄皮V翅双拼十翅",cat:"小食拼盘/多人餐",cur:49.9,orig:74.5},
+  {n:"大堡口福三件套",cat:"大堡口福单人餐",cur:22.9,orig:47.5}]}
 ];
+const sel=document.getElementById("store");
+REAL_STORES.forEach((s,i)=>{const o=document.createElement("option");o.value=i;o.textContent=s.label+"（storeCode="+s.code+"）";sel.appendChild(o);});
+sel.addEventListener("change",run);
 function recommend(budget){
-  return REAL_DEALS
+  const deals=REAL_STORES[sel.value].deals;
+  return deals
     .filter(d=>d.cur>0&&d.cur<=budget+0.001)
     .map(d=>({...d,saved:Math.round((d.orig-d.cur)*100)/100}))
     .sort((a,b)=>b.saved-a.saved||a.cur-b.cur)

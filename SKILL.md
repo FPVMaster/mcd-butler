@@ -45,6 +45,8 @@ WorkBuddy 用 Bash/执行命令跑 `scripts/mcd_mcp.py`：
 export MCD_MCP_TOKEN="你的token"
 python scripts/mcd_mcp.py list                       # 列出 37 个工具及参数
 python scripts/mcd_mcp.py save --budget 60            # ★省钱最优解（真实官方价）
+python scripts/mcd_mcp.py stores --city 北京 --keyword 王府井   # ★列出可选门店
+python scripts/mcd_mcp.py save --budget 60 --city 北京 --store-code 1950526   # ★自选门店算价
 python scripts/mcd_mcp.py daily                       # ★今日最划算日报（活动+券+真实价）
 python scripts/mcd_mcp.py brief                       # 今日麦麦情报（时间+券+活动+热量）
 python scripts/mcd_mcp.py call available-coupons      # 查可领券
@@ -52,6 +54,7 @@ python scripts/mcd_mcp.py call auto-bind-coupons      # 一键领券（写操作
 python scripts/mcd_mcp.py call query-nearby-stores --args '{"beType":1,"searchType":2,"city":"上海","keyword":"人民广场"}'
 ```
 > 注意：`query-nearby-stores` 的 `city` 和 `keyword` **必须同时提供**，只传 city 会报「城市名或者关键词不能为空」。
+> **门店自定义**：用户想指定门店时，先跑 `stores --city X --keyword Y` 列出门店（含 storeCode），再用 `--store-code` 或 `--store-index`（第几家）算价；同一套餐不同门店原价不同（实测双人餐原价上海 114.5 / 北京 117.0 / 广州 115.0），务必以所选门店价格为准。
 
 ## 调用原则
 

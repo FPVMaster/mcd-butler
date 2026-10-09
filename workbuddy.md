@@ -127,3 +127,12 @@ mcd-butler/
 4. 在官方赛事仓库按既有报名 Issue 格式提交报名：**[M-China/mcd-developer-innovation-challenge#52](https://github.com/M-China/mcd-developer-innovation-challenge/issues/52)**（【参赛申请】+ 项目名称/地址/简介，与仓库内既有报名格式一致）。
 
 **至此参赛硬性流程全部完成**，剩余为运营动作：拉 Star（10-26 00:00 按 Star 数定榜，Star>0 进榜）。
+
+## 第十步：门店价格自定义（用户反馈迭代）
+
+用户指出"门店价格选择需要自定义"，迭代两处：
+
+1. **CLI**：新增 `stores` 命令（按城市+关键词列出可选门店及 storeCode）；`save`/`daily` 新增 `--store-code`（精确自选门店）与 `--store-index`（选第几家）参数。实测：`save --city 北京 --store-code 1950526` 成功按北京门店价格计算。
+2. **演示页**：升级为三城门店快照（上海 1450713 / 北京 1950526 / 广州 1400714），新增门店下拉切换——并实测发现**同一套餐不同门店原价不同**（全明星双人分享餐原价：上海 114.5 / 北京 117.0 / 广州 115.0），坐实"门店级定价"，切门店看价差成为演示亮点。
+
+本轮验证：`py_compile` 通过；`stores` / `save --store-code` / `save --store-index` 真实调用全部成功；演示页首屏截图确认下拉渲染正常。

@@ -432,13 +432,29 @@ def brief(mcp):
     print("💡 以上均来自麦当劳中国官方 MCP 实时返回；下单/领券请在 WorkBuddy 中确认。")
 
 
-def _fetch_real_menu(mcp, city="上海", keyword="人民广场"):
-    """真实拉取门店菜单：query-nearby-stores → query-meals。"""
+def find_stores(mcp, city="上海", keyword="人民广场"):
+    """按城市+关键词搜门店，返回门店列表（供用户自选）。"""
     sr = _sc(mcp, "query-nearby-stores", {"beType": 1, "searchType": 2, "city": city, "keyword": keyword})
-    stores = sr.get("data") or []
-    if not stores:
-        raise RuntimeError("未找到门店（city=%s keyword=%s），请换关键词" % (city, keyword))
-    store = stores[0]
+    return sr.get("data") or []
+
+
+def _fetch_real_menu(mcp, city="上海", keyword="人民广场", store_code=None, store_index=0):
+    """真实拉取门店菜单：query-nearby-stores → query-meals。
+
+    store_code：用户自选门店（优先级最高，支持自定义价格来源）；
+    store_index：未指定 store_code 时取搜索结果第几家（默认第 1 家）。
+    """
+    if store_code:
+        # 自选门店：仍搜一次拿到门店展示信息，搜不到就用最小信息
+        stores = find_stores(mcp, city, keyword) if city else []
+        store = next((s for s in stores if str(s.get("storeCode")) == str(store_code)),
+                     {"storeCode": store_code, "storeName": "门店 storeCode=%s" % store_code,
+                      "address": "（补传 --city + --keyword 可显示门店名）"})
+    else:
+        stores = find_stores(mcp, city, keyword)
+        if not stores:
+            raise RuntimeError("未找到门店（city=%s keyword=%s），请换关键词" % (city, keyword))
+        store = stores[max(0, min(store_index, len(stores) - 1))]
     mr = _sc(mcp, "query-meals", {"storeCode": store.get("storeCode"), "orderType": 1, "beType": 1})
     data = mr.get("data") or {}
     return store, data.get("meals") or {}, data.get("categories") or {}
@@ -468,9 +484,9 @@ def _classify_real_menu(meals, cats):
     return singles, duos
 
 
-def recommend_real(mcp, budget, city, keyword):
+def recommend_real(mcp, budget, city, keyword, store_code=None, store_index=0):
     """真实数据驱动的省钱最优解：官方现价/原价差即省额，不做任何虚构。"""
-    store, meals, cats = _fetch_real_menu(mcp, city, keyword)
+    store, meals, cats = _fetch_real_menu(mcp, city, keyword, store_code, store_index)
     singles, duos = _classify_real_menu(meals, cats)
     cands = []
     for tag, pool in (("单人", singles), ("双人", duos)):
@@ -495,7 +511,7 @@ def _print_real_recs(store, recs, budget):
     print("💡 省额 = 官方原价-现价（实时接口）；再叠加可领券（见 daily/brief）或 App 内券面额，能更省。")
 
 
-def daily(mcp, city="上海", keyword="人民广场"):
+def daily(mcp, city="上海", keyword="人民广场", store_code=None):
     """今日最划算日报：活动日历 + 可领券 + 真实菜单折扣 Top5（决策版）。"""
     print("📰 麦麦管家 · 今日吃什么最划算（真实官方数据）")
     print("=" * 64)
@@ -528,7 +544,7 @@ def daily(mcp, city="上海", keyword="人民广场"):
     except Exception as e:
         print("🎟️ 券获取失败：%s" % e)
     try:
-        store, meals, cats = _fetch_real_menu(mcp, city, keyword)
+        store, meals, cats = _fetch_real_menu(mcp, city, keyword, store_code)
         singles, duos = _classify_real_menu(meals, cats)
         top = sorted(duos + singles, key=lambda x: x["saved"], reverse=True)[:5]
         print("\n💰 今日最划算 Top5（%s · %s）：" % (store.get("storeName"), store.get("address")))
@@ -555,11 +571,17 @@ def main():
     s.add_argument("--budget", type=float, default=30.0, help="预算（元）")
     s.add_argument("--city", default="上海", help="城市")
     s.add_argument("--keyword", default="人民广场", help="门店搜索关键词（定位门店用）")
+    s.add_argument("--store-code", dest="store_code", default=None, help="自选门店 storeCode（先跑 stores 命令查看）")
+    s.add_argument("--store-index", dest="store_index", type=int, default=0, help="搜索结果第几家门店（0=第1家，默认）")
     sub.add_parser("demo", parents=[parent], help="打印完整演示对话")
     sub.add_parser("brief", parents=[parent], help="★今日麦麦情报（真实多工具编排）")
+    st = sub.add_parser("stores", parents=[parent], help="★列出可选门店（配合 --store-code 自定义价格来源）")
+    st.add_argument("--city", default="上海", help="城市")
+    st.add_argument("--keyword", default="人民广场", help="门店搜索关键词")
     dly = sub.add_parser("daily", parents=[parent], help="★今日最划算日报（活动+券+真实价格）")
     dly.add_argument("--city", default="上海", help="城市")
     dly.add_argument("--keyword", default="人民广场", help="门店搜索关键词")
+    dly.add_argument("--store-code", dest="store_code", default=None, help="自选门店 storeCode")
 
     args = p.parse_args()
     demo = bool(args.demo) or os.environ.get("MCD_DEMO") == "1"
@@ -578,20 +600,30 @@ def main():
         except json.JSONDecodeError:
             raise SystemExit("❌ --args 不是合法 JSON")
         print(json.dumps(mcp.call(args.tool, a), ensure_ascii=False, indent=2))
+    elif args.cmd == "stores":
+        stores = find_stores(mcp, args.city, args.keyword)
+        if not stores:
+            print("未找到门店（city=%s keyword=%s），请换关键词" % (args.city, args.keyword))
+        else:
+            print("\n🏪 %s · 可选门店（%d 家，用 --store-code 指定）：" % (args.city, len(stores)))
+            for i, st in enumerate(stores, 1):
+                print("  %d. %s ｜ %s ｜ storeCode=%s"
+                      % (i, st.get("storeName"), st.get("address"), st.get("storeCode")))
     elif args.cmd == "save":
         if demo:
             recs = mcp.recommend(args.budget, args.city)
             _print_recommend(recs, args.budget)
         else:
             try:
-                store, recs = recommend_real(mcp, args.budget, args.city, args.keyword)
+                store, recs = recommend_real(mcp, args.budget, args.city, args.keyword,
+                                             args.store_code, args.store_index)
                 _print_real_recs(store, recs, args.budget)
             except Exception as e:
                 print("⚠️ 真实菜单获取失败（%s），退回离线演示数据：" % e)
                 recs = mcp.recommend(args.budget, args.city)
                 _print_recommend(recs, args.budget)
     elif args.cmd == "daily":
-        daily(mcp, args.city, args.keyword)
+        daily(mcp, args.city, args.keyword, args.store_code)
     elif args.cmd == "demo":
         print(json.dumps(mcp.call("now-time-info"), ensure_ascii=False, indent=2))
         print(json.dumps(mcp.call("available-coupons"), ensure_ascii=False, indent=2))
