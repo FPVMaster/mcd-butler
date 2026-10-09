@@ -8,6 +8,8 @@
 
 ![麦麦管家 · 省钱最优解演示](demo/screenshot.png)
 
+> ⭐ **如果这个项目对你有用，点个 Star 支持一下**——正在参加麦当劳中国 1024 程序员节创意开发大赛，榜单按 Star 数排名（[报名 Issue #52](https://github.com/M-China/mcd-developer-innovation-challenge/issues/52)）。谢谢每一位麦门！
+
 **🎮 在线体验（无需安装、无需 Token）**：<https://fpvmaster.github.io/mcd-butler/> —— 浏览器打开，填预算即看推荐。
 
 ---
