@@ -432,6 +432,114 @@ def brief(mcp):
     print("💡 以上均来自麦当劳中国官方 MCP 实时返回；下单/领券请在 WorkBuddy 中确认。")
 
 
+def _fetch_real_menu(mcp, city="上海", keyword="人民广场"):
+    """真实拉取门店菜单：query-nearby-stores → query-meals。"""
+    sr = _sc(mcp, "query-nearby-stores", {"beType": 1, "searchType": 2, "city": city, "keyword": keyword})
+    stores = sr.get("data") or []
+    if not stores:
+        raise RuntimeError("未找到门店（city=%s keyword=%s），请换关键词" % (city, keyword))
+    store = stores[0]
+    mr = _sc(mcp, "query-meals", {"storeCode": store.get("storeCode"), "orderType": 1, "beType": 1})
+    data = mr.get("data") or {}
+    return store, data.get("meals") or {}, data.get("categories") or {}
+
+
+def _classify_real_menu(meals, cats):
+    """把真实菜单归类为 单人候选/双人候选（省额 = 官方原价-现价）。"""
+    singles, duos = [], []
+    for c in cats:
+        cname = c.get("name", "") or ""
+        for it in c.get("meals", []):
+            m = meals.get(it.get("code"))
+            if not m:
+                continue
+            name = m.get("name", "") or ""
+            try:
+                cur = float(m.get("currentPrice") or 0)
+                orig = float(m.get("originalPrice") or cur)
+            except (TypeError, ValueError):
+                continue
+            item = {"name": name, "cur": cur, "orig": orig,
+                    "saved": round(orig - cur, 2), "cat": cname}
+            if ("双人" in cname) or ("双人" in name) or ("分享" in cname):
+                duos.append(item)
+            elif ("单人" in cname) or ("套餐" in cname) or ("三件套" in name) or ("堡" in name):
+                singles.append(item)
+    return singles, duos
+
+
+def recommend_real(mcp, budget, city, keyword):
+    """真实数据驱动的省钱最优解：官方现价/原价差即省额，不做任何虚构。"""
+    store, meals, cats = _fetch_real_menu(mcp, city, keyword)
+    singles, duos = _classify_real_menu(meals, cats)
+    cands = []
+    for tag, pool in (("单人", singles), ("双人", duos)):
+        for it in pool:
+            if 0 < it["cur"] <= budget:
+                cands.append(dict(it, tag=tag))
+    cands.sort(key=lambda x: x["saved"], reverse=True)
+    return store, cands[:3]
+
+
+def _print_real_recs(store, recs, budget):
+    print("\n🍔 麦麦管家 · 省钱最优解（预算 ¥%.1f · 真实官方价）" % budget)
+    print("📍 门店：%s（%s，storeCode=%s）" % (store.get("storeName"), store.get("address"), store.get("storeCode")))
+    print("-" * 64)
+    if not recs:
+        print("预算内暂无套餐（可调高预算或换 --keyword 换门店）")
+    for i, r in enumerate(recs, 1):
+        print("【方案 %d · %s餐】%s" % (i, r["tag"], r["name"]))
+        print("   官方现价 ¥%.2f（原价 ¥%.2f，立省 ¥%.2f）｜分类：%s"
+              % (r["cur"], r["orig"], r["saved"], r["cat"]))
+    print("-" * 64)
+    print("💡 省额 = 官方原价-现价（实时接口）；再叠加可领券（见 daily/brief）或 App 内券面额，能更省。")
+
+
+def daily(mcp, city="上海", keyword="人民广场"):
+    """今日最划算日报：活动日历 + 可领券 + 真实菜单折扣 Top5（决策版）。"""
+    print("📰 麦麦管家 · 今日吃什么最划算（真实官方数据）")
+    print("=" * 64)
+    try:
+        td = _sc(mcp, "now-time-info")
+        td = td.get("data", td)
+        print("🕐 %s（%s）" % (td.get("formatted"), td.get("dayOfWeek")))
+    except Exception as e:
+        print("🕐 时间获取失败：%s" % e)
+    try:
+        cc = _sc(mcp, "campaign-calendar")
+        dl = (cc.get("data") or {}).get("dailyList") or []
+        today = [d for d in dl if "今日" in (d.get("dateText") or "")]
+        print("\n📅 今日活动：")
+        shown = 0
+        for d in today:
+            for ev in d.get("events", []):
+                title = ev.get("activityTitle") or (ev.get("articleDto") or {}).get("title")
+                if title and shown < 3:
+                    print("   · %s" % title)
+                    shown += 1
+        if shown == 0:
+            print("   · 今日无重点活动")
+    except Exception as e:
+        print("📅 活动获取失败：%s" % e)
+    try:
+        ac = _sc(mcp, "available-coupons")
+        cps = ac.get("data") or []
+        print("\n🎟️ 可领券（前 5）：%s" % "、".join((c.get("couponName") or "") for c in cps[:5]))
+    except Exception as e:
+        print("🎟️ 券获取失败：%s" % e)
+    try:
+        store, meals, cats = _fetch_real_menu(mcp, city, keyword)
+        singles, duos = _classify_real_menu(meals, cats)
+        top = sorted(duos + singles, key=lambda x: x["saved"], reverse=True)[:5]
+        print("\n💰 今日最划算 Top5（%s · %s）：" % (store.get("storeName"), store.get("address")))
+        for i, r in enumerate(top, 1):
+            print("   %d. %s —— ¥%.1f（原 ¥%.1f，省 ¥%.1f）" % (i, r["name"], r["cur"], r["orig"], r["saved"]))
+    except Exception as e:
+        print("💰 菜单获取失败：%s" % e)
+    print("\n" + "=" * 64)
+    print("💡 数据均来自麦当劳中国官方 MCP 实时返回；下单请以 App 实际结算为准。")
+
+
 def main():
     parent = argparse.ArgumentParser(add_help=False)
     parent.add_argument("--demo", action="store_true", help="离线演示模式（无需 Token）")
@@ -446,8 +554,12 @@ def main():
     s = sub.add_parser("save", parents=[parent], help="★省钱最优解引擎")
     s.add_argument("--budget", type=float, default=30.0, help="预算（元）")
     s.add_argument("--city", default="上海", help="城市")
+    s.add_argument("--keyword", default="人民广场", help="门店搜索关键词（定位门店用）")
     sub.add_parser("demo", parents=[parent], help="打印完整演示对话")
     sub.add_parser("brief", parents=[parent], help="★今日麦麦情报（真实多工具编排）")
+    dly = sub.add_parser("daily", parents=[parent], help="★今日最划算日报（活动+券+真实价格）")
+    dly.add_argument("--city", default="上海", help="城市")
+    dly.add_argument("--keyword", default="人民广场", help="门店搜索关键词")
 
     args = p.parse_args()
     demo = bool(args.demo) or os.environ.get("MCD_DEMO") == "1"
@@ -467,8 +579,19 @@ def main():
             raise SystemExit("❌ --args 不是合法 JSON")
         print(json.dumps(mcp.call(args.tool, a), ensure_ascii=False, indent=2))
     elif args.cmd == "save":
-        recs = mcp.recommend(args.budget, args.city)
-        _print_recommend(recs, args.budget)
+        if demo:
+            recs = mcp.recommend(args.budget, args.city)
+            _print_recommend(recs, args.budget)
+        else:
+            try:
+                store, recs = recommend_real(mcp, args.budget, args.city, args.keyword)
+                _print_real_recs(store, recs, args.budget)
+            except Exception as e:
+                print("⚠️ 真实菜单获取失败（%s），退回离线演示数据：" % e)
+                recs = mcp.recommend(args.budget, args.city)
+                _print_recommend(recs, args.budget)
+    elif args.cmd == "daily":
+        daily(mcp, args.city, args.keyword)
     elif args.cmd == "demo":
         print(json.dumps(mcp.call("now-time-info"), ensure_ascii=False, indent=2))
         print(json.dumps(mcp.call("available-coupons"), ensure_ascii=False, indent=2))
